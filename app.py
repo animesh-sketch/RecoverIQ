@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import numpy as np
-import io
 
-# ── Page config ──────────────────────────────────────────────────────────────
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="RecoverIQ | Collections Intelligence",
     page_icon="⚡",
@@ -13,173 +11,337 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Global CSS (dark SaaS theme) ─────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Chrome cleanup ── */
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 1.2rem !important; padding-bottom: 2rem !important; }
+section[data-testid="stSidebar"] > div { padding-top: 0 !important; }
+[data-testid="stFileUploaderDropzone"] { background: #1c2128 !important; border-color: #30363d !important; }
+
 /* ── Base ── */
 html, body, [data-testid="stAppViewContainer"] {
-    background-color: #0d1117;
+    background-color: #0a0e14;
     color: #e6edf3;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    background-color: #161b22;
-    border-right: 1px solid #30363d;
+    background: linear-gradient(180deg, #0d1117 0%, #111827 100%) !important;
+    border-right: 1px solid #1e2530 !important;
 }
 [data-testid="stSidebar"] * { color: #e6edf3 !important; }
+[data-testid="stSidebar"] .stButton button {
+    background: linear-gradient(135deg, #1f3a5f, #0d2137) !important;
+    border: 1px solid #2d5a8e !important;
+    color: #58a6ff !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    transition: all 0.2s !important;
+}
+[data-testid="stSidebar"] .stButton button:hover {
+    background: linear-gradient(135deg, #2a4f7a, #1a3a5c) !important;
+    border-color: #58a6ff !important;
+}
 
 /* ── Header ── */
 .riq-header {
-    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1f2e 100%);
-    border: 1px solid #30363d;
-    border-radius: 12px;
-    padding: 24px 32px;
-    margin-bottom: 24px;
+    background: linear-gradient(135deg, #0d1117 0%, #111827 60%, #0f1d2e 100%);
+    border: 1px solid #1e2530;
+    border-radius: 14px;
+    padding: 22px 28px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
     gap: 16px;
+    position: relative;
+    overflow: hidden;
 }
-.riq-logo { font-size: 36px; }
-.riq-title { font-size: 28px; font-weight: 700; color: #58a6ff; letter-spacing: -0.5px; }
-.riq-subtitle { font-size: 13px; color: #8b949e; margin-top: 2px; }
+.riq-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #58a6ff, #3fb950, #bc8cff);
+}
+.riq-logo-box {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #1f3a5f, #0d2137);
+    border: 1px solid #2d5a8e;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+}
+.riq-title {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #58a6ff, #79c0ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.riq-subtitle { font-size: 12px; color: #8b949e; margin-top: 3px; }
+.riq-badges { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .riq-badge {
-    background: #1f2937;
-    border: 1px solid #374151;
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.2);
     border-radius: 20px;
     padding: 4px 12px;
     font-size: 11px;
-    color: #6b7280;
-    margin-left: auto;
+    color: #58a6ff;
+    font-weight: 500;
+}
+.riq-badge-green {
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: #3fb950;
+    font-weight: 500;
 }
 
 /* ── Section headers ── */
-.section-header {
-    font-size: 13px;
-    font-weight: 600;
-    color: #58a6ff;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    border-bottom: 1px solid #21262d;
-    padding-bottom: 8px;
+.section-hdr {
+    display: flex; align-items: center; gap: 10px;
     margin: 28px 0 16px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1e2530;
+}
+.section-num {
+    background: rgba(88,166,255,0.1);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px; font-weight: 700; color: #58a6ff;
+    letter-spacing: 0.5px;
+}
+.section-title {
+    font-size: 12px; font-weight: 700; color: #c9d1d9;
+    text-transform: uppercase; letter-spacing: 1px;
 }
 
 /* ── KPI Cards ── */
 .kpi-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 16px 20px;
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 18px 16px 14px;
     text-align: center;
     position: relative;
     overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
+.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
 .kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
 }
-.kpi-card.blue::before  { background: #58a6ff; }
-.kpi-card.green::before { background: #3fb950; }
-.kpi-card.amber::before { background: #d29922; }
-.kpi-card.red::before   { background: #f85149; }
-.kpi-card.purple::before{ background: #bc8cff; }
-.kpi-card.teal::before  { background: #39d353; }
+.kpi-card.blue::before   { background: linear-gradient(90deg, #58a6ff, #79c0ff); }
+.kpi-card.green::before  { background: linear-gradient(90deg, #3fb950, #56d364); }
+.kpi-card.teal::before   { background: linear-gradient(90deg, #39d353, #2ea043); }
+.kpi-card.amber::before  { background: linear-gradient(90deg, #d29922, #e3b341); }
+.kpi-card.purple::before { background: linear-gradient(90deg, #bc8cff, #d2a8ff); }
+.kpi-card.red::before    { background: linear-gradient(90deg, #f85149, #ff7b72); }
 
-.kpi-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-.kpi-value { font-size: 26px; font-weight: 700; color: #e6edf3; line-height: 1.1; }
-.kpi-sub   { font-size: 11px; color: #6b7280; margin-top: 4px; }
+.kpi-icon   { font-size: 20px; margin-bottom: 8px; }
+.kpi-label  { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.kpi-value  { font-size: 28px; font-weight: 800; color: #e6edf3; line-height: 1; }
+.kpi-sub    { font-size: 11px; color: #6b7280; margin-top: 5px; }
+
+.kpi-bar-wrap { margin-top: 10px; background: #0d1117; border-radius: 3px; height: 4px; overflow: hidden; }
+.kpi-bar      { height: 4px; border-radius: 3px; transition: width 0.8s ease; }
+
+/* ── Health Status Row ── */
+.health-row {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding: 14px 18px;
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    margin-bottom: 4px;
+}
+.health-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 500;
+    border: 1px solid;
+}
+.hp-green  { background: rgba(63,185,80,0.1);  border-color: rgba(63,185,80,0.3);  color: #3fb950; }
+.hp-amber  { background: rgba(210,153,34,0.1); border-color: rgba(210,153,34,0.3); color: #d29922; }
+.hp-red    { background: rgba(248,81,73,0.1);  border-color: rgba(248,81,73,0.3);  color: #f85149; }
 
 /* ── Score Card ── */
-.score-card {
-    background: #161b22;
-    border: 1px solid #30363d;
+.score-info-card {
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
     border-radius: 12px;
-    padding: 28px;
+    padding: 24px 20px;
     text-align: center;
 }
-.score-number { font-size: 72px; font-weight: 800; line-height: 1; }
-.score-label  { font-size: 16px; font-weight: 600; margin-top: 8px; }
-.score-grade  { font-size: 13px; color: #8b949e; margin-top: 6px; }
+.score-grade-label { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.score-desc        { font-size: 11px; color: #8b949e; margin-top: 6px; }
+.score-weights {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+}
+.sw-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.sw-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sw-label { color: #8b949e; flex: 1; }
+.sw-val   { color: #e6edf3; font-weight: 600; min-width: 36px; text-align: right; }
 
 /* ── Risk / Lever Cards ── */
 .risk-card {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
     border-left: 4px solid #f85149;
-    border-radius: 8px;
-    padding: 14px 18px;
+    border-radius: 10px;
+    padding: 16px 18px;
     margin-bottom: 10px;
+    transition: transform 0.15s;
 }
-.risk-title { font-weight: 600; color: #f85149; font-size: 13px; margin-bottom: 4px; }
-.risk-body  { font-size: 12px; color: #8b949e; line-height: 1.5; }
+.risk-card:hover { transform: translateX(3px); }
+.risk-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.risk-badge  {
+    font-size: 9px; font-weight: 700; padding: 2px 7px;
+    border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.rb-high   { background: rgba(248,81,73,0.15);  color: #f85149;  border: 1px solid rgba(248,81,73,0.3); }
+.rb-medium { background: rgba(210,153,34,0.15); color: #d29922;  border: 1px solid rgba(210,153,34,0.3); }
+.rb-low    { background: rgba(63,185,80,0.15);  color: #3fb950;  border: 1px solid rgba(63,185,80,0.3); }
+.risk-title { font-weight: 600; color: #f85149; font-size: 13px; }
+.risk-body  { font-size: 12px; color: #8b949e; line-height: 1.6; }
 
 .lever-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-left: 4px solid #3fb950;
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    display: flex; gap: 18px; align-items: flex-start;
+    transition: transform 0.15s, box-shadow 0.15s;
 }
-.lever-title { font-weight: 600; color: #3fb950; font-size: 13px; margin-bottom: 4px; }
-.lever-body  { font-size: 12px; color: #8b949e; line-height: 1.5; }
+.lever-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.lever-num-badge {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(63,185,80,0.1);
+    border: 1px solid rgba(63,185,80,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: #3fb950;
+    flex-shrink: 0;
+}
+.lever-title { font-weight: 700; color: #3fb950; font-size: 14px; margin-bottom: 5px; }
+.lever-body  { font-size: 12px; color: #8b949e; line-height: 1.6; }
 
 /* ── Efficiency rows ── */
+.eff-panel {
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 16px 18px;
+}
+.eff-panel-title { font-size: 12px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
 .eff-row {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 12px 18px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.eff-label { font-size: 13px; color: #8b949e; }
-.eff-value { font-size: 15px; font-weight: 600; color: #e6edf3; }
-
-/* ── Dropoff callout ── */
-.dropoff-box {
-    background: #1c1f26;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-top: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid #1e2530;
     font-size: 13px;
-    color: #8b949e;
-    line-height: 1.7;
 }
-.dropoff-box strong { color: #d29922; }
+.eff-row:last-child { border-bottom: none; }
+.eff-label { color: #8b949e; }
+.eff-value { font-weight: 600; color: #e6edf3; }
 
-/* ── Misc ── */
-hr { border-color: #21262d; }
-[data-testid="stMetric"] { background: transparent !important; }
-div[data-testid="column"] > div { gap: 10px; }
+/* ── Dropoff ── */
+.dropoff-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 12px;
+    background: #1c2128;
+    border: 1px solid #21262d;
+    border-radius: 7px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+.dropoff-label { color: #8b949e; }
+.dropoff-callout {
+    background: #111827;
+    border: 1px solid #21262d;
+    border-left: 3px solid #d29922;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 12px; color: #8b949e; line-height: 1.7;
+}
+.dropoff-callout strong { color: #d29922; }
+
+/* ── Sidebar logo ── */
+.sb-logo {
+    background: linear-gradient(135deg, #0d1117, #111827);
+    border-bottom: 1px solid #1e2530;
+    padding: 20px 16px 16px;
+    margin-bottom: 8px;
+}
+.sb-logo-title {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.3px;
+    background: linear-gradient(135deg, #58a6ff, #79c0ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.sb-logo-sub { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.7px; margin-top: 2px; }
+
+.sb-stat-grid { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.sb-stat {
+    background: rgba(88,166,255,0.06);
+    border: 1px solid rgba(88,166,255,0.15);
+    border-radius: 8px;
+    padding: 6px 10px; flex: 1; min-width: 60px;
+    text-align: center;
+}
+.sb-stat-val { font-size: 15px; font-weight: 700; color: #e6edf3; }
+.sb-stat-lbl { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 1px; }
+
+/* ── Empty state ── */
+.empty-state {
+    text-align: center; padding: 80px 20px;
+    background: linear-gradient(145deg, #161b22, #1c2128);
+    border: 1px dashed #30363d; border-radius: 16px;
+    margin: 40px 0;
+}
+.empty-icon { font-size: 56px; margin-bottom: 16px; }
+.empty-title { font-size: 22px; font-weight: 700; color: #e6edf3; margin-bottom: 8px; }
+.empty-body  { font-size: 14px; color: #8b949e; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── Demo Data ─────────────────────────────────────────────────────────────────
+# ── Demo data ─────────────────────────────────────────────────────────────────
 def generate_demo_data(n=500):
     rng = np.random.default_rng(42)
     dispositions = rng.choice(
         ["PTP", "RTP", "Not_Evaluated", "Callback", "Connected_No_Outcome", "Unreachable"],
-        size=n,
-        p=[0.22, 0.12, 0.18, 0.15, 0.13, 0.20],
+        size=n, p=[0.22, 0.12, 0.18, 0.15, 0.13, 0.20],
     )
-    states = rng.choice(["active", "inactive", "completed"], size=n, p=[0.55, 0.25, 0.20])
+    states   = rng.choice(["active", "inactive", "completed"], size=n, p=[0.55, 0.25, 0.20])
     attempted = rng.integers(1, 16, size=n)
     connected = np.where(
         np.isin(dispositions, ["PTP", "Callback", "Connected_No_Outcome"]),
-        rng.integers(1, attempted + 1),
-        rng.integers(0, 3, size=n),
+        rng.integers(1, attempted + 1), rng.integers(0, 3, size=n),
     )
     connected = np.minimum(connected, attempted)
-    spend = rng.uniform(5, 45, size=n)
-
-    df = pd.DataFrame({
+    spend     = rng.uniform(5, 45, size=n)
+    return pd.DataFrame({
         "Lead_ID": [f"L{10000+i}" for i in range(n)],
         "Lead_Entity_Disposition": dispositions,
         "Lead_State": states,
@@ -187,535 +349,537 @@ def generate_demo_data(n=500):
         "AI_Connected_Calls": connected,
         "Total_Spend_INR": spend.round(2),
     })
-    return df
 
 
-# ── KPI Computation ───────────────────────────────────────────────────────────
-def compute_kpis(df: pd.DataFrame) -> dict:
-    total = len(df)
-    ptp_count = (df["Lead_Entity_Disposition"] == "PTP").sum()
-    ptp_pct = ptp_count / total * 100
-
-    connected_leads = (df["AI_Connected_Calls"] > 0).sum()
-    connection_rate = connected_leads / total * 100
-
-    attempted_leads = (df["AI_Attempted_Calls"] > 0).sum()
-    attempt_rate = attempted_leads / total * 100
-
-    active_count = (df["Lead_State"] == "active").sum()
-    active_pct = active_count / total * 100
-
-    total_spend = df["Total_Spend_INR"].sum()
-    cost_per_ptp = total_spend / ptp_count if ptp_count > 0 else float("inf")
-    avg_attempts = df["AI_Attempted_Calls"].mean()
-
-    # Efficiency
-    connected_mask = df["AI_Connected_Calls"] > 0
-    avg_attempts_connected = df.loc[connected_mask, "AI_Attempted_Calls"].mean()
-    avg_attempts_not_connected = df.loc[~connected_mask, "AI_Attempted_Calls"].mean()
-    attempt_efficiency = connected_leads / attempted_leads * 100 if attempted_leads > 0 else 0
-
-    # Funnel stages
-    ptp_leads = ptp_count
-    completed_leads = (df["Lead_State"] == "completed").sum()
-
-    # Risk flags
-    rtp_count = (df["Lead_Entity_Disposition"] == "RTP").sum()
-    rtp_pct = rtp_count / total * 100
-    not_eval_count = (df["Lead_Entity_Disposition"] == "Not_Evaluated").sum()
-    not_eval_pct = not_eval_count / total * 100
-    overattempted = ((df["AI_Attempted_Calls"] > 12) & (df["AI_Connected_Calls"] == 0)).sum()
-    overattempted_pct = overattempted / total * 100
-
-    # Cost outliers: leads costing > mean + 2*std
-    spend_mean = df["Total_Spend_INR"].mean()
-    spend_std = df["Total_Spend_INR"].std()
-    cost_outliers = (df["Total_Spend_INR"] > spend_mean + 2 * spend_std).sum()
-
-    return {
-        "total": total,
-        "ptp_count": int(ptp_count),
-        "ptp_pct": ptp_pct,
-        "connected_leads": int(connected_leads),
-        "connection_rate": connection_rate,
-        "attempted_leads": int(attempted_leads),
-        "attempt_rate": attempt_rate,
-        "active_count": int(active_count),
-        "active_pct": active_pct,
-        "total_spend": total_spend,
-        "cost_per_ptp": cost_per_ptp,
-        "avg_attempts": avg_attempts,
-        "avg_attempts_connected": avg_attempts_connected,
-        "avg_attempts_not_connected": avg_attempts_not_connected,
-        "attempt_efficiency": attempt_efficiency,
-        "completed_leads": int(completed_leads),
-        "rtp_pct": rtp_pct,
-        "not_eval_pct": not_eval_pct,
-        "overattempted": int(overattempted),
-        "overattempted_pct": overattempted_pct,
-        "cost_outliers": int(cost_outliers),
-        "spend_mean": spend_mean,
-        "spend_std": spend_std,
-    }
-
-
-def compute_score(k: dict) -> tuple[float, str, str]:
-    # Normalize each component to 0–10
-    ptp_score = min(k["ptp_pct"] / 25 * 10, 10)          # 25% = perfect
-    conn_score = min(k["connection_rate"] / 60 * 10, 10)  # 60% = perfect
-    # Active % penalty — too high active with no progress is bad
-    active_penalty = max(0, (k["active_pct"] - 50) / 50 * 10)  # over 50% active = penalty
-    active_score = max(0, 10 - active_penalty)
-    # Cost efficiency: lower cost_per_ptp = better (benchmark INR 150)
-    cost_score = min(150 / k["cost_per_ptp"] * 10, 10) if k["cost_per_ptp"] > 0 else 0
-
-    score = (
-        ptp_score * 0.40
-        + conn_score * 0.30
-        + active_score * 0.15
-        + cost_score * 0.15
+# ── KPI computation ───────────────────────────────────────────────────────────
+def compute_kpis(df):
+    total   = len(df)
+    ptp_c   = int((df["Lead_Entity_Disposition"] == "PTP").sum())
+    ptp_pct = ptp_c / total * 100
+    conn_c  = int((df["AI_Connected_Calls"] > 0).sum())
+    conn_rt = conn_c / total * 100
+    att_c   = int((df["AI_Attempted_Calls"] > 0).sum())
+    act_c   = int((df["Lead_State"] == "active").sum())
+    act_pct = act_c / total * 100
+    spend   = float(df["Total_Spend_INR"].sum())
+    cPTP    = spend / ptp_c if ptp_c else 0.0
+    avgAtt  = float(df["AI_Attempted_Calls"].mean())
+    cm      = df["AI_Connected_Calls"] > 0
+    avgC    = float(df.loc[cm,  "AI_Attempted_Calls"].mean()) if cm.sum()  else 0.0
+    avgNC   = float(df.loc[~cm, "AI_Attempted_Calls"].mean()) if (~cm).sum() else 0.0
+    attEff  = conn_c / att_c * 100 if att_c else 0.0
+    comp_c  = int((df["Lead_State"] == "completed").sum())
+    ne_c    = int((df["Lead_Entity_Disposition"] == "Not_Evaluated").sum())
+    ne_pct  = ne_c / total * 100
+    ov_c    = int(((df["AI_Attempted_Calls"] > 12) & (df["AI_Connected_Calls"] == 0)).sum())
+    ov_pct  = ov_c / total * 100
+    smean   = float(df["Total_Spend_INR"].mean())
+    sstd    = float(df["Total_Spend_INR"].std())
+    outliers = int((df["Total_Spend_INR"] > smean + 2 * sstd).sum())
+    return dict(
+        total=total, ptp_count=ptp_c, ptp_pct=ptp_pct,
+        connected_leads=conn_c, connection_rate=conn_rt,
+        attempted_leads=att_c, active_count=act_c, active_pct=act_pct,
+        total_spend=spend, cost_per_ptp=cPTP, avg_attempts=avgAtt,
+        avg_attempts_connected=avgC, avg_attempts_not_connected=avgNC,
+        attempt_efficiency=attEff, completed_leads=comp_c,
+        not_eval_count=ne_c, not_eval_pct=ne_pct,
+        overattempted=ov_c, overattempted_pct=ov_pct,
+        cost_outliers=outliers, spend_mean=smean, spend_std=sstd,
     )
-    score = round(score, 1)
-
-    if score >= 7:
-        grade, color = "Strong", "#3fb950"
-    elif score >= 4:
-        grade, color = "Needs Optimization", "#d29922"
-    else:
-        grade, color = "At Risk", "#f85149"
-
-    return score, grade, color
 
 
-# ── Plotly theme helper ───────────────────────────────────────────────────────
-PLOTLY_LAYOUT = dict(
-    paper_bgcolor="#0d1117",
-    plot_bgcolor="#0d1117",
+def compute_score(k):
+    ptp_s  = min(k["ptp_pct"] / 25 * 10, 10)
+    con_s  = min(k["connection_rate"] / 60 * 10, 10)
+    pen    = max(0, (k["active_pct"] - 50) / 50 * 10)
+    act_s  = max(0, 10 - pen)
+    cst_s  = min(150 / k["cost_per_ptp"] * 10, 10) if k["cost_per_ptp"] > 0 else 0
+    score  = round(ptp_s*.40 + con_s*.30 + act_s*.15 + cst_s*.15, 1)
+    if score >= 7:   grade, color = "Strong",             "#3fb950"
+    elif score >= 4: grade, color = "Needs Optimization", "#d29922"
+    else:            grade, color = "At Risk",            "#f85149"
+    return score, grade, color, dict(
+        ptp=round(ptp_s*.40, 2), conn=round(con_s*.30, 2),
+        active=round(act_s*.15, 2), cost=round(cst_s*.15, 2),
+    )
+
+
+# ── Plotly base layout ────────────────────────────────────────────────────────
+PLY = dict(
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(color="#e6edf3", family="Inter, Segoe UI, sans-serif", size=12),
-    margin=dict(l=20, r=20, t=40, b=20),
+    margin=dict(l=16, r=16, t=36, b=16),
 )
+
+
+# ── Session state — auto-load demo data ───────────────────────────────────────
+if "df" not in st.session_state:
+    st.session_state.df = generate_demo_data()
+    st.session_state.data_label = "Demo Data · 500 leads"
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚡ RecoverIQ")
-    st.markdown("---")
-    st.markdown("**Data Source**")
+    st.markdown("""
+    <div class="sb-logo">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:24px">⚡</div>
+        <div>
+          <div class="sb-logo-title">RecoverIQ</div>
+          <div class="sb-logo-sub">Collections Intelligence</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("**Upload Campaign Data**")
     uploaded = st.file_uploader(
-        "Upload CSV", type=["csv"],
-        help="CSV must have: Lead_Entity_Disposition, Lead_State, AI_Attempted_Calls, AI_Connected_Calls, Total_Spend_INR"
+        "CSV file", type=["csv"], label_visibility="collapsed",
+        help="Required: Lead_Entity_Disposition, Lead_State, AI_Attempted_Calls, AI_Connected_Calls, Total_Spend_INR",
     )
-    use_demo = st.button("Use Demo Data", use_container_width=True)
+    if st.button("↺  Reset to Demo Data", use_container_width=True):
+        st.session_state.df = generate_demo_data()
+        st.session_state.data_label = "Demo Data · 500 leads"
+        st.rerun()
+
+    if uploaded is not None:
+        try:
+            raw = pd.read_csv(uploaded)
+            if "Total_Spend (INR)" in raw.columns:
+                raw = raw.rename(columns={"Total_Spend (INR)": "Total_Spend_INR"})
+            req = {"Lead_Entity_Disposition","Lead_State","AI_Attempted_Calls","AI_Connected_Calls","Total_Spend_INR"}
+            miss = req - set(raw.columns)
+            if miss:
+                st.error(f"Missing: {', '.join(miss)}")
+            else:
+                st.session_state.df = raw
+                st.session_state.data_label = f"{uploaded.name} · {len(raw):,} leads"
+                st.rerun()
+        except Exception as e:
+            st.error(str(e))
+
+    # Live stats in sidebar
+    if st.session_state.df is not None:
+        k_sb = compute_kpis(st.session_state.df)
+        sc, gr, sc_col, _ = compute_score(k_sb)
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="font-size:11px;color:#8b949e;margin-bottom:8px">LIVE SNAPSHOT</div>
+        <div class="sb-stat-grid">
+          <div class="sb-stat"><div class="sb-stat-val">{k_sb['total']:,}</div><div class="sb-stat-lbl">Leads</div></div>
+          <div class="sb-stat"><div class="sb-stat-val" style="color:#3fb950">{k_sb['ptp_pct']:.1f}%</div><div class="sb-stat-lbl">PTP</div></div>
+          <div class="sb-stat"><div class="sb-stat-val" style="color:{sc_col}">{sc}</div><div class="sb-stat-lbl">Score</div></div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("---")
-    st.markdown("**Expected Columns**")
-    st.code(
-        "Lead_Entity_Disposition\nLead_State\nAI_Attempted_Calls\nAI_Connected_Calls\nTotal_Spend_INR",
-        language=None,
-    )
-    st.markdown("---")
-    st.caption("RecoverIQ v1.0 · Collections Intelligence")
+    st.markdown("""
+    <div style="font-size:10px;color:#444d56;text-align:center;line-height:1.8">
+      RecoverIQ v2.0<br>Collections Intelligence<br>Powered by AI
+    </div>
+    """, unsafe_allow_html=True)
 
 
-# ── Session state for data ────────────────────────────────────────────────────
-if "df" not in st.session_state:
-    st.session_state.df = None
-
-if uploaded is not None:
-    try:
-        df_raw = pd.read_csv(uploaded)
-        required = {"Lead_Entity_Disposition", "Lead_State", "AI_Attempted_Calls", "AI_Connected_Calls", "Total_Spend_INR"}
-        missing = required - set(df_raw.columns)
-        if missing:
-            st.error(f"Missing columns: {', '.join(missing)}")
-        else:
-            st.session_state.df = df_raw
-    except Exception as e:
-        st.error(f"Could not read CSV: {e}")
-
-if use_demo:
-    st.session_state.df = generate_demo_data()
-    st.sidebar.success("Demo data loaded (500 leads)")
-
+# ── Data ──────────────────────────────────────────────────────────────────────
 df = st.session_state.df
+if df is None:
+    st.markdown("""
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">No Data Loaded</div>
+      <div class="empty-body">Upload a CSV or click <strong>Reset to Demo Data</strong> in the sidebar.</div>
+    </div>""", unsafe_allow_html=True)
+    st.stop()
 
+k = compute_kpis(df)
+score, grade, score_color, comps = compute_score(k)
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
+# ── Page header ───────────────────────────────────────────────────────────────
+data_label = st.session_state.get("data_label", "Demo Data")
+st.markdown(f"""
 <div class="riq-header">
-  <div class="riq-logo">⚡</div>
+  <div class="riq-logo-box">⚡</div>
   <div>
     <div class="riq-title">RecoverIQ</div>
     <div class="riq-subtitle">Collections Intelligence Dashboard</div>
   </div>
-  <div class="riq-badge">Executive View · AI-Powered</div>
+  <div class="riq-badges">
+    <span class="riq-badge">⚡ AI-Powered</span>
+    <span class="riq-badge-green">● {data_label}</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
 
-# ── No data state ─────────────────────────────────────────────────────────────
-if df is None:
-    st.markdown("""
-    <div style="text-align:center; padding: 80px 20px; color: #8b949e;">
-      <div style="font-size:48px; margin-bottom:16px;">📊</div>
-      <div style="font-size:20px; font-weight:600; color:#e6edf3; margin-bottom:8px;">No Data Loaded</div>
-      <div style="font-size:14px;">Upload a CSV file or click <strong style="color:#58a6ff;">Use Demo Data</strong> in the sidebar to get started.</div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-
-# ── Compute KPIs ──────────────────────────────────────────────────────────────
-k = compute_kpis(df)
-score, grade, score_color = compute_score(k)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 # SECTION 1 — CAMPAIGN OVERVIEW
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">01 · Campaign Overview</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">01</span><span class="section-title">Campaign Overview</span></div>', unsafe_allow_html=True)
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+BENCHMARKS = dict(ptp_pct=25, connection_rate=60, cost_per_ptp=150, active_pct=50, avg_attempts=8)
+
+def pct_of_bench(val, bench, invert=False):
+    p = min(val / bench * 100, 100) if bench else 0
+    return 100 - p if invert else p
 
 cards = [
-    (c1, "blue",   "Total Leads",        f"{k['total']:,}",           "records loaded"),
-    (c2, "green",  "PTP Rate",           f"{k['ptp_pct']:.1f}%",      f"{k['ptp_count']:,} PTPs"),
-    (c3, "teal",   "Connection Rate",    f"{k['connection_rate']:.1f}%", f"{k['connected_leads']:,} connected"),
-    (c4, "amber",  "Cost per PTP",       f"₹{k['cost_per_ptp']:.0f}", f"Total ₹{k['total_spend']:,.0f}"),
-    (c5, "purple", "Active Leads",       f"{k['active_pct']:.1f}%",   f"{k['active_count']:,} active"),
-    (c6, "red",    "Avg Attempts/Lead",  f"{k['avg_attempts']:.1f}",  "AI call attempts"),
+    ("blue",   "📋", "Total Leads",       f"{k['total']:,}",             f"{k['attempted_leads']:,} attempted",        None,     None),
+    ("green",  "✅", "PTP Rate",           f"{k['ptp_pct']:.1f}%",        f"{k['ptp_count']:,} PTPs",                   pct_of_bench(k['ptp_pct'], 25), "#3fb950"),
+    ("teal",   "📞", "Connection Rate",   f"{k['connection_rate']:.1f}%", f"{k['connected_leads']:,} connected",        pct_of_bench(k['connection_rate'], 60), "#39d353"),
+    ("amber",  "💰", "Cost per PTP",      f"₹{k['cost_per_ptp']:.0f}",   f"Total ₹{k['total_spend']:,.0f}",            pct_of_bench(k['cost_per_ptp'], 150, invert=True), "#d29922"),
+    ("purple", "🔄", "Active Leads",      f"{k['active_pct']:.1f}%",     f"{k['active_count']:,} active",              pct_of_bench(k['active_pct'], 50, invert=True), "#bc8cff"),
+    ("red",    "🎯", "Avg Attempts/Lead", f"{k['avg_attempts']:.1f}",    "AI call attempts",                           pct_of_bench(k['avg_attempts'], 12, invert=True), "#f85149"),
 ]
 
-for col, color, label, value, sub in cards:
+cols = st.columns(6)
+for col, (color, icon, label, value, sub, bar_pct, bar_color) in zip(cols, cards):
     with col:
+        bar_html = ""
+        if bar_pct is not None:
+            bar_html = f'<div class="kpi-bar-wrap"><div class="kpi-bar" style="width:{bar_pct:.0f}%;background:{bar_color}"></div></div>'
         st.markdown(f"""
         <div class="kpi-card {color}">
+          <div class="kpi-icon">{icon}</div>
           <div class="kpi-label">{label}</div>
           <div class="kpi-value">{value}</div>
           <div class="kpi-sub">{sub}</div>
+          {bar_html}
         </div>
         """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ── Health Status Row ─────────────────────────────────────────────────────────
+def health(val, good_thresh, bad_thresh, invert=False):
+    ok   = val >= good_thresh if not invert else val <= good_thresh
+    warn = val >= bad_thresh  if not invert else val <= bad_thresh
+    if ok:   return "hp-green", "●"
+    if warn: return "hp-amber", "●"
+    return "hp-red", "●"
+
+pills = [
+    ("PTP Rate",         health(k['ptp_pct'],        25, 15),          f"{k['ptp_pct']:.1f}%"),
+    ("Connection Rate",  health(k['connection_rate'], 50, 30),          f"{k['connection_rate']:.1f}%"),
+    ("Cost/PTP",         health(k['cost_per_ptp'],    150, 300, True),  f"₹{k['cost_per_ptp']:.0f}"),
+    ("Active Backlog",   health(k['active_pct'],      50, 70, True),    f"{k['active_pct']:.1f}%"),
+    ("Attempt Eff.",     health(k['attempt_efficiency'], 50, 30),       f"{k['attempt_efficiency']:.1f}%"),
+    ("Score",            health(score, 7, 4),                           f"{score}/10"),
+]
+
+pills_html = "".join(
+    f'<div class="health-pill {cls}">{dot} {name}: <strong>{val}</strong></div>'
+    for name, (cls, dot), val in pills
+)
+st.markdown(f'<div class="health-row">{pills_html}</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SECTION 2 — CAMPAIGN SCORE
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">02 · Campaign Score</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">02</span><span class="section-title">Campaign Score</span></div>', unsafe_allow_html=True)
 
-col_score, col_breakdown = st.columns([1, 2])
+col_gauge, col_info, col_bar = st.columns([1, 1, 2])
 
-with col_score:
+with col_gauge:
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=score,
+        number={"font": {"size": 54, "color": score_color, "family": "Inter"}, "suffix": ""},
+        domain={"x": [0, 1], "y": [0, 1]},
+        gauge={
+            "axis": {"range": [0, 10], "tickwidth": 1, "tickcolor": "#30363d",
+                     "tickfont": {"color": "#8b949e", "size": 10}},
+            "bar":  {"color": score_color, "thickness": 0.22},
+            "bgcolor": "rgba(0,0,0,0)",
+            "borderwidth": 0,
+            "steps": [
+                {"range": [0, 4],  "color": "rgba(248,81,73,0.08)"},
+                {"range": [4, 7],  "color": "rgba(210,153,34,0.08)"},
+                {"range": [7, 10], "color": "rgba(63,185,80,0.08)"},
+            ],
+        },
+    ))
+    fig_gauge.update_layout(**PLY, height=200)
+    st.plotly_chart(fig_gauge, use_container_width=True, config={"displayModeBar": False})
+
+with col_info:
     icon = "🟢" if grade == "Strong" else ("🟡" if grade == "Needs Optimization" else "🔴")
+    sw = [
+        ("#58a6ff", "PTP Rate (40%)",        f"{comps['ptp']:.2f}", 4.0),
+        ("#3fb950", "Connection Rate (30%)", f"{comps['conn']:.2f}", 3.0),
+        ("#bc8cff", "Active Mgmt (15%)",     f"{comps['active']:.2f}", 1.5),
+        ("#d29922", "Cost Efficiency (15%)", f"{comps['cost']:.2f}", 1.5),
+    ]
+    sw_html = "".join(
+        f'<div class="sw-row"><div class="sw-dot" style="background:{c}"></div>'
+        f'<span class="sw-label">{l}</span>'
+        f'<span class="sw-val">{v}<span style="color:#444d56">/{m}</span></span></div>'
+        for c, l, v, m in sw
+    )
     st.markdown(f"""
-    <div class="score-card">
-      <div class="score-number" style="color:{score_color}">{score}</div>
-      <div class="kpi-label" style="margin-top:4px">out of 10</div>
-      <div class="score-label" style="color:{score_color}">{icon} {grade}</div>
-      <div class="score-grade">Weighted composite score</div>
+    <div class="score-info-card">
+      <div style="font-size:44px;font-weight:800;color:{score_color};line-height:1">{score}</div>
+      <div style="font-size:11px;color:#8b949e">out of 10</div>
+      <div class="score-grade-label" style="color:{score_color}">{icon} {grade}</div>
+      <div class="score-desc">Weighted composite score</div>
+      <div class="score-weights">{sw_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col_breakdown:
-    # Score component bar chart
-    components = {
-        "PTP Rate (40%)": min(k["ptp_pct"] / 25 * 10, 10) * 0.40,
-        "Connection Rate (30%)": min(k["connection_rate"] / 60 * 10, 10) * 0.30,
-        "Active Lead Mgmt (15%)": max(0, 10 - max(0, (k["active_pct"] - 50) / 50 * 10)) * 0.15,
-        "Cost Efficiency (15%)": min(150 / k["cost_per_ptp"] * 10, 10) * 0.15 if k["cost_per_ptp"] > 0 else 0,
-    }
-    max_scores = [4.0, 3.0, 1.5, 1.5]
-    labels = list(components.keys())
-    values = list(components.values())
-    colors_bar = ["#58a6ff", "#3fb950", "#bc8cff", "#d29922"]
+with col_bar:
+    labels_b = ["PTP Rate (40%)", "Connection Rate (30%)", "Active Mgmt (15%)", "Cost Efficiency (15%)"]
+    vals_b   = [comps["ptp"], comps["conn"], comps["active"], comps["cost"]]
+    max_b    = [4.0, 3.0, 1.5, 1.5]
+    colors_b = ["#58a6ff", "#3fb950", "#bc8cff", "#d29922"]
 
     fig_score = go.Figure()
     fig_score.add_trace(go.Bar(
-        x=values,
-        y=labels,
-        orientation="h",
-        marker_color=colors_bar,
-        text=[f"{v:.2f} / {m:.1f}" for v, m in zip(values, max_scores)],
-        textposition="outside",
-        textfont=dict(color="#e6edf3", size=11),
+        x=max_b, y=labels_b, orientation="h",
+        marker_color=["rgba(88,166,255,0.1)", "rgba(63,185,80,0.1)", "rgba(188,140,255,0.1)", "rgba(210,153,34,0.1)"],
+        showlegend=False, hoverinfo="skip",
+    ))
+    fig_score.add_trace(go.Bar(
+        x=vals_b, y=labels_b, orientation="h",
+        marker_color=colors_b,
+        marker=dict(line=dict(width=0)),
+        text=[f"{v:.2f} / {m:.1f}" for v, m in zip(vals_b, max_b)],
+        textposition="outside", textfont=dict(color="#e6edf3", size=11),
+        showlegend=False,
     ))
     fig_score.update_layout(
-        **PLOTLY_LAYOUT,
-        title=dict(text="Score Component Breakdown", font=dict(size=13, color="#8b949e")),
-        xaxis=dict(range=[0, 4.5], showgrid=False, zeroline=False, showticklabels=False,
-                   color="#8b949e"),
+        **PLY, barmode="overlay", height=200,
+        title=dict(text="Component Breakdown", font=dict(size=12, color="#8b949e"), x=0),
+        xaxis=dict(range=[0, 4.8], showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, color="#e6edf3"),
-        height=220,
-        showlegend=False,
     )
     st.plotly_chart(fig_score, use_container_width=True, config={"displayModeBar": False})
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 # SECTION 3 — FUNNEL INTELLIGENCE
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">03 · Funnel Intelligence</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">03</span><span class="section-title">Funnel Intelligence</span></div>', unsafe_allow_html=True)
 
-col_funnel, col_dropoff = st.columns([3, 2])
+col_funnel, col_drop = st.columns([3, 2])
 
 with col_funnel:
-    funnel_stages = ["Total Leads", "Attempted", "Connected", "PTP", "Completed"]
-    funnel_values = [
-        k["total"],
-        k["attempted_leads"],
-        k["connected_leads"],
-        k["ptp_count"],
-        k["completed_leads"],
-    ]
+    stages = ["Total Leads", "Attempted", "Connected", "PTP", "Completed"]
+    vals_f = [k["total"], k["attempted_leads"], k["connected_leads"], k["ptp_count"], k["completed_leads"]]
+    colors_f = ["#1f3a5f", "#1a4a6b", "#1d5c7a", "#1a6e7a", "#177a6b"]
+    borders_f = ["#58a6ff", "#4d94e0", "#3fb950", "#2ecc71", "#27ae60"]
+
     fig_funnel = go.Figure(go.Funnel(
-        y=funnel_stages,
-        x=funnel_values,
+        y=stages, x=vals_f,
         textinfo="value+percent initial",
         textfont=dict(color="#e6edf3", size=12),
-        marker=dict(
-            color=["#1f3a5f", "#1a4a6b", "#1d5c7a", "#1a6e7a", "#177a6b"],
-            line=dict(color=["#58a6ff", "#4d94e0", "#3fb950", "#2ecc71", "#27ae60"], width=2),
-        ),
-        connector=dict(line=dict(color="#30363d", width=1)),
+        marker=dict(color=colors_f, line=dict(color=borders_f, width=2)),
+        connector=dict(line=dict(color="#1e2530", width=1)),
     ))
-    fig_funnel.update_layout(
-        **PLOTLY_LAYOUT,
-        title=dict(text="Campaign Conversion Funnel", font=dict(size=13, color="#8b949e")),
-        height=340,
-    )
+    fig_funnel.update_layout(**PLY, height=320,
+        title=dict(text="Campaign Conversion Funnel", font=dict(size=12, color="#8b949e"), x=0))
     st.plotly_chart(fig_funnel, use_container_width=True, config={"displayModeBar": False})
 
-with col_dropoff:
-    # Drop-off analysis
-    drop1 = (k["total"] - k["attempted_leads"]) / k["total"] * 100
-    drop2 = (k["attempted_leads"] - k["connected_leads"]) / k["attempted_leads"] * 100 if k["attempted_leads"] > 0 else 0
-    drop3 = (k["connected_leads"] - k["ptp_count"]) / k["connected_leads"] * 100 if k["connected_leads"] > 0 else 0
-    drop4 = (k["ptp_count"] - k["completed_leads"]) / k["ptp_count"] * 100 if k["ptp_count"] > 0 else 0
+with col_drop:
+    total = k["total"]
+    att   = k["attempted_leads"]
+    conn  = k["connected_leads"]
+    ptp_c = k["ptp_count"]
+    comp  = k["completed_leads"]
 
     drops = [
-        ("Total → Attempted", drop1, k["total"] - k["attempted_leads"]),
-        ("Attempted → Connected", drop2, k["attempted_leads"] - k["connected_leads"]),
-        ("Connected → PTP", drop3, k["connected_leads"] - k["ptp_count"]),
-        ("PTP → Completed", drop4, k["ptp_count"] - k["completed_leads"]),
+        ("Total → Attempted",  total, att),
+        ("Attempted → Connected", att, conn),
+        ("Connected → PTP",    conn, ptp_c),
+        ("PTP → Completed",    ptp_c, comp),
     ]
-    # Find worst two drop-offs
-    sorted_drops = sorted(drops, key=lambda x: x[1], reverse=True)
+    drop_html = ""
+    for label, frm, to in drops:
+        lost = frm - to
+        pct  = frm and (lost / frm * 100) or 0
+        col  = "#f85149" if pct > 55 else ("#d29922" if pct > 30 else "#3fb950")
+        drop_html += f"""
+        <div class="dropoff-row">
+          <span class="dropoff-label">{label}</span>
+          <span style="font-size:12px;font-weight:600;color:{col}">−{pct:.0f}% ({lost:,} lost)</span>
+        </div>"""
 
-    st.markdown("**Drop-off Analysis**")
-    drop_text = ""
-    for label, pct, count in drops:
-        color = "#f85149" if pct > 60 else ("#d29922" if pct > 35 else "#3fb950")
-        drop_text += f"<div style='display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#161b22;border:1px solid #30363d;border-radius:6px;margin-bottom:6px;'><span style='font-size:12px;color:#8b949e'>{label}</span><span style='font-size:13px;font-weight:600;color:{color}'>{pct:.0f}% ({count:,} lost)</span></div>"
+    sorted_drops = sorted(drops, key=lambda x: (x[1]-x[2])/x[1] if x[1] else 0, reverse=True)
+    w1, w2 = sorted_drops[0], sorted_drops[1]
+    p1 = w1[1] and (w1[1]-w1[2])/w1[1]*100 or 0
+    p2 = w2[1] and (w2[1]-w2[2])/w2[1]*100 or 0
 
-    st.markdown(drop_text, unsafe_allow_html=True)
-
-    worst1, worst2 = sorted_drops[0], sorted_drops[1]
     st.markdown(f"""
-    <div class="dropoff-box">
-      📉 <strong>Critical Drop-off:</strong> {worst1[0]} stage loses <strong>{worst1[2]:,} leads ({worst1[1]:.0f}%)</strong>.<br>
-      ⚠️ <strong>Secondary Leak:</strong> {worst2[0]} drops <strong>{worst2[2]:,} leads ({worst2[1]:.0f}%)</strong> — examine disposition patterns.
+    {drop_html}
+    <div class="dropoff-callout">
+      📉 <strong>Critical Drop-off:</strong> {w1[0]} loses <strong>{w1[1]-w1[2]:,} leads ({p1:.0f}%)</strong>.<br>
+      ⚠ <strong>Secondary Leak:</strong> {w2[0]} drops <strong>{w2[1]-w2[2]:,} leads ({p2:.0f}%)</strong>.
     </div>
     """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 # SECTION 4 — EFFICIENCY SNAPSHOT
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">04 · Efficiency Snapshot</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">04</span><span class="section-title">Efficiency Snapshot</span></div>', unsafe_allow_html=True)
 
-col_eff1, col_eff2 = st.columns(2)
+c1, c2 = st.columns(2)
+cpc = k["total_spend"] / k["connected_leads"] if k["connected_leads"] else 0
+cpa = k["total_spend"] / k["attempted_leads"] if k["attempted_leads"] else 0
+cpl = k["total_spend"] / k["total"]
 
-with col_eff1:
-    st.markdown("**Retry & Attempt Logic**")
-    rows = [
-        ("Avg Attempts — Connected Leads", f"{k['avg_attempts_connected']:.1f} calls"),
-        ("Avg Attempts — Non-Connected Leads", f"{k['avg_attempts_not_connected']:.1f} calls"),
-        ("Attempt Efficiency (Connected/Attempted)", f"{k['attempt_efficiency']:.1f}%"),
-        ("Total AI Attempts Made", f"{df['AI_Attempted_Calls'].sum():,}"),
-        ("Total AI Connections Made", f"{df['AI_Connected_Calls'].sum():,}"),
+with c1:
+    rows1 = [
+        ("Avg Attempts — Connected",     f"{k['avg_attempts_connected']:.1f} calls"),
+        ("Avg Attempts — Not Connected", f"{k['avg_attempts_not_connected']:.1f} calls"),
+        ("Attempt Efficiency",           f"{k['attempt_efficiency']:.1f}%"),
+        ("Total AI Attempts",            f"{df['AI_Attempted_Calls'].sum():,}"),
+        ("Total AI Connections",         f"{df['AI_Connected_Calls'].sum():,}"),
     ]
-    for label, val in rows:
-        st.markdown(f"""
-        <div class="eff-row">
-          <span class="eff-label">{label}</span>
-          <span class="eff-value">{val}</span>
-        </div>
-        """, unsafe_allow_html=True)
+    rows_html = "".join(f'<div class="eff-row"><span class="eff-label">{l}</span><span class="eff-value">{v}</span></div>' for l, v in rows1)
+    st.markdown(f'<div class="eff-panel"><div class="eff-panel-title">Retry & Attempt Logic</div>{rows_html}</div>', unsafe_allow_html=True)
 
-with col_eff2:
-    st.markdown("**Cost Efficiency**")
-    cost_per_connection = k["total_spend"] / k["connected_leads"] if k["connected_leads"] > 0 else 0
-    cost_per_attempt = k["total_spend"] / k["attempted_leads"] if k["attempted_leads"] > 0 else 0
-    cost_per_lead = k["total_spend"] / k["total"]
-    avg_spend = k["spend_mean"]
-
+with c2:
     rows2 = [
-        ("Cost per PTP", f"₹{k['cost_per_ptp']:.2f}"),
-        ("Cost per Connection", f"₹{cost_per_connection:.2f}"),
-        ("Cost per Attempt", f"₹{cost_per_attempt:.2f}"),
-        ("Cost per Lead (Overall)", f"₹{cost_per_lead:.2f}"),
-        ("Avg Spend per Lead", f"₹{avg_spend:.2f}"),
+        ("Cost per PTP",        f"₹{k['cost_per_ptp']:.2f}"),
+        ("Cost per Connection", f"₹{cpc:.2f}"),
+        ("Cost per Attempt",    f"₹{cpa:.2f}"),
+        ("Cost per Lead",       f"₹{cpl:.2f}"),
+        ("Avg Spend per Lead",  f"₹{k['spend_mean']:.2f}"),
     ]
-    for label, val in rows2:
-        st.markdown(f"""
-        <div class="eff-row">
-          <span class="eff-label">{label}</span>
-          <span class="eff-value">{val}</span>
-        </div>
-        """, unsafe_allow_html=True)
+    rows_html2 = "".join(f'<div class="eff-row"><span class="eff-label">{l}</span><span class="eff-value">{v}</span></div>' for l, v in rows2)
+    st.markdown(f'<div class="eff-panel"><div class="eff-panel-title">Cost Efficiency</div>{rows_html2}</div>', unsafe_allow_html=True)
 
-# Disposition breakdown bar chart
-st.markdown("**Disposition Breakdown**")
+# Dual charts: bar + donut
+st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+ch1, ch2 = st.columns([3, 2])
+
 disp_counts = df["Lead_Entity_Disposition"].value_counts().reset_index()
 disp_counts.columns = ["Disposition", "Count"]
-disp_colors = {
-    "PTP": "#3fb950", "RTP": "#f85149", "Not_Evaluated": "#d29922",
-    "Callback": "#58a6ff", "Connected_No_Outcome": "#bc8cff", "Unreachable": "#6b7280",
-}
-bar_colors = [disp_colors.get(d, "#8b949e") for d in disp_counts["Disposition"]]
+DISP_COLORS = {"PTP":"#3fb950","RTP":"#f85149","Not_Evaluated":"#d29922",
+               "Callback":"#58a6ff","Connected_No_Outcome":"#bc8cff","Unreachable":"#484f58"}
 
-fig_disp = go.Figure(go.Bar(
-    x=disp_counts["Disposition"],
-    y=disp_counts["Count"],
-    marker_color=bar_colors,
-    text=disp_counts["Count"],
-    textposition="outside",
-    textfont=dict(color="#e6edf3", size=11),
-))
-fig_disp.update_layout(
-    **PLOTLY_LAYOUT,
-    title=dict(text="Lead Disposition Distribution", font=dict(size=13, color="#8b949e")),
-    xaxis=dict(showgrid=False, color="#8b949e"),
-    yaxis=dict(showgrid=True, gridcolor="#21262d", color="#8b949e"),
-    height=260,
-    showlegend=False,
-)
-st.plotly_chart(fig_disp, use_container_width=True, config={"displayModeBar": False})
+with ch1:
+    bar_cols = [DISP_COLORS.get(d, "#8b949e") for d in disp_counts["Disposition"]]
+    fig_bar = go.Figure(go.Bar(
+        x=disp_counts["Disposition"], y=disp_counts["Count"],
+        marker_color=[c + "bb" for c in bar_cols],
+        marker=dict(line=dict(color=bar_cols, width=1)),
+        text=disp_counts["Count"], textposition="outside",
+        textfont=dict(color="#e6edf3", size=11),
+    ))
+    fig_bar.update_layout(**PLY, height=260,
+        title=dict(text="Disposition Distribution", font=dict(size=12, color="#8b949e"), x=0),
+        xaxis=dict(showgrid=False, color="#8b949e"),
+        yaxis=dict(showgrid=True, gridcolor="#1e2530", color="#8b949e"),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+
+with ch2:
+    pie_cols = [DISP_COLORS.get(d, "#8b949e") for d in disp_counts["Disposition"]]
+    fig_donut = go.Figure(go.Pie(
+        labels=disp_counts["Disposition"], values=disp_counts["Count"],
+        hole=0.58, marker_colors=pie_cols,
+        textinfo="percent", textfont=dict(color="#e6edf3", size=11),
+        hovertemplate="%{label}: %{value:,}<extra></extra>",
+    ))
+    fig_donut.add_annotation(
+        text=f"<b>{k['total']:,}</b><br><span style='font-size:10px'>total</span>",
+        x=0.5, y=0.5, showarrow=False,
+        font=dict(color="#e6edf3", size=14),
+    )
+    fig_donut.update_layout(**PLY, height=260,
+        title=dict(text="Disposition Mix", font=dict(size=12, color="#8b949e"), x=0),
+        showlegend=True,
+        legend=dict(font=dict(color="#8b949e", size=10), bgcolor="rgba(0,0,0,0)"),
+    )
+    st.plotly_chart(fig_donut, use_container_width=True, config={"displayModeBar": False})
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 # SECTION 5 — RISK RADAR
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">05 · Risk Radar</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">05</span><span class="section-title">Risk Radar</span></div>', unsafe_allow_html=True)
 
 risks = []
-
 if k["ptp_pct"] < 15:
-    risks.append((
-        "Critical PTP Rate",
-        f"PTP rate at {k['ptp_pct']:.1f}% is well below the 15% baseline threshold. "
-        f"Only {k['ptp_count']:,} of {k['total']:,} leads converted to PTP. Review script quality and agent targeting logic.",
-    ))
-
+    risks.append(("HIGH",   "Critical PTP Rate",
+        f"PTP rate {k['ptp_pct']:.1f}% is below the 15% baseline. Only {k['ptp_count']:,} of {k['total']:,} leads converted. Review script quality and targeting logic."))
 if k["not_eval_pct"] > 15:
-    risks.append((
-        "High Not-Evaluated Pool",
-        f"{k['not_eval_pct']:.1f}% of leads ({int(k['not_eval_pct']/100*k['total']):,} leads) remain Not Evaluated. "
-        f"These represent recoverable revenue sitting idle — prioritize re-routing to active retry queues.",
-    ))
-
+    risks.append(("HIGH",   "High Not-Evaluated Pool",
+        f"{k['not_eval_pct']:.1f}% of leads ({k['not_eval_count']:,}) remain Not Evaluated — recoverable revenue sitting idle. Prioritize re-routing to retry queues."))
 if k["overattempted_pct"] > 5:
-    risks.append((
-        "Over-Attempted Zero-Connection Leads",
-        f"{k['overattempted']:,} leads ({k['overattempted_pct']:.1f}%) have >12 AI attempts with zero connections. "
-        f"These are burning spend with no return. Flag for exclusion or human escalation.",
-    ))
-
+    risks.append(("MEDIUM", "Over-Attempted Zero-Connection Leads",
+        f"{k['overattempted']:,} leads ({k['overattempted_pct']:.1f}%) have >12 attempts with zero connections — burning spend. Flag for exclusion or human escalation."))
 if k["cost_outliers"] > 0:
-    spend_threshold = k["spend_mean"] + 2 * k["spend_std"]
-    risks.append((
-        "Cost Outlier Leads",
-        f"{k['cost_outliers']:,} leads exceed ₹{spend_threshold:.0f} spend (mean + 2σ). "
-        f"Audit these high-cost leads for ROI — they may be distorting the overall cost-per-PTP metric.",
-    ))
-
+    thr = k["spend_mean"] + 2 * k["spend_std"]
+    risks.append(("MEDIUM", "Cost Outlier Leads",
+        f"{k['cost_outliers']:,} leads exceed ₹{thr:.0f} (mean + 2σ). Audit for ROI — distorting overall Cost-per-PTP metric."))
 if k["connection_rate"] < 30:
-    risks.append((
-        "Low Connection Rate",
-        f"Only {k['connection_rate']:.1f}% of leads are connecting with the AI dialer. "
-        f"Below 30% signals list quality issues, wrong numbers, or poor call timing. Validate contact data.",
-    ))
-
+    risks.append(("HIGH",   "Low Connection Rate",
+        f"Only {k['connection_rate']:.1f}% of leads connecting. Below 30% signals list quality issues or poor call timing. Validate contact data."))
 if k["active_pct"] > 70:
-    risks.append((
-        "Excessive Active Lead Backlog",
-        f"{k['active_pct']:.1f}% of leads are still in 'active' state. "
-        f"High active backlog suggests capacity constraints or insufficient follow-through velocity.",
-    ))
+    risks.append(("LOW",    "Excessive Active Lead Backlog",
+        f"{k['active_pct']:.1f}% of leads still 'active' — capacity constraints or insufficient follow-through velocity."))
+if not risks:
+    risks.append(("LOW",    "No Critical Risks Detected",
+        "All key metrics are within acceptable thresholds. Continue monitoring performance indicators."))
 
-# Show top 4 risks
-top_risks = risks[:4] if risks else [("No Critical Risks Detected", "All key metrics are within acceptable thresholds. Continue monitoring.")]
+badge_cls = {"HIGH": "rb-high", "MEDIUM": "rb-medium", "LOW": "rb-low"}
 
 cols_risk = st.columns(2)
-for i, (title, body) in enumerate(top_risks):
+for i, (sev, title, body) in enumerate(risks[:4]):
     with cols_risk[i % 2]:
         st.markdown(f"""
         <div class="risk-card">
-          <div class="risk-title">⚠ {title}</div>
+          <div class="risk-header">
+            <span class="risk-badge {badge_cls[sev]}">{sev}</span>
+            <span class="risk-title">⚠ {title}</span>
+          </div>
           <div class="risk-body">{body}</div>
         </div>
         """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SECTION 6 — TOP 3 OPTIMIZATION LEVERS
-# ═══════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-header">06 · Top 3 Optimization Levers</div>', unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — OPTIMIZATION LEVERS
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr"><span class="section-num">06</span><span class="section-title">Top 3 Optimization Levers</span></div>', unsafe_allow_html=True)
 
 levers = []
-
-# Lever 1: biggest connection gap
 if k["connection_rate"] < 50:
-    conn_gap = 50 - k["connection_rate"]
-    additional_connections = int(conn_gap / 100 * k["total"])
-    levers.append((
-        "Dial-Time Optimization",
-        f"Current connection rate is {k['connection_rate']:.1f}%. Shifting AI outreach to peak-reachability windows (10am–12pm, 4pm–6pm IST) "
-        f"could realistically recover {additional_connections:,}+ connections. Estimated impact: +{conn_gap:.0f}pp connection rate.",
-    ))
-
-# Lever 2: Not-evaluated re-engagement
-not_eval_count = int(k["not_eval_pct"] / 100 * k["total"])
-if not_eval_count > 20:
-    ptp_potential = int(not_eval_count * k["ptp_pct"] / 100)
-    levers.append((
-        "Re-Engage Not-Evaluated Leads",
-        f"{not_eval_count:,} leads sit unscored. Applying the current PTP conversion rate ({k['ptp_pct']:.1f}%) "
-        f"to this pool projects {ptp_potential:,} incremental PTPs with minimal marginal cost. "
-        f"Route to a 3-attempt retry sequence before expiration.",
-    ))
-
-# Lever 3: Over-attempted lead pruning
+    gap   = 50 - k["connection_rate"]
+    extra = int(gap / 100 * k["total"])
+    levers.append(("Dial-Time Optimization",
+        f"Connection rate is {k['connection_rate']:.1f}%. Shifting AI outreach to peak windows (10am–12pm, 4pm–6pm IST) could recover {extra:,}+ connections — estimated +{gap:.0f}pp connection rate."))
+ne = k.get("not_eval_count", int(k["not_eval_pct"] / 100 * k["total"]))
+if ne > 20:
+    pot = int(ne * k["ptp_pct"] / 100)
+    levers.append(("Re-Engage Not-Evaluated Leads",
+        f"{ne:,} leads sit unscored. Applying the current PTP rate ({k['ptp_pct']:.1f}%) projects {pot:,} incremental PTPs with minimal marginal cost. Route to a 3-attempt retry sequence."))
 if k["overattempted"] > 0:
-    spend_reclaim = k["overattempted"] * k["spend_mean"]
-    levers.append((
-        "Prune Dead-End Leads & Reallocate Spend",
-        f"Capping retries at 12 and redirecting {k['overattempted']:,} zero-connection leads to human agents "
-        f"would reclaim approximately ₹{spend_reclaim:,.0f} in AI dial spend. Reallocate budget to "
-        f"fresh high-propensity segments to improve overall Cost per PTP.",
-    ))
-
-# Lever 4 (fallback): Cost per PTP reduction
+    reclaim = k["overattempted"] * k["spend_mean"]
+    levers.append(("Prune Dead-End Leads & Reallocate Spend",
+        f"Capping retries at 12 on {k['overattempted']:,} zero-connection leads reclaims ~₹{reclaim:,.0f} in AI dial spend. Reallocate to fresh high-propensity segments."))
 if len(levers) < 3:
-    levers.append((
-        "Score-Based Lead Prioritisation",
-        f"Implement propensity scoring to rank leads by PTP likelihood before dialling. "
-        f"Focusing the first 60% of attempts on the top-scored 30% of leads typically "
-        f"reduces Cost per PTP by 20–35% while maintaining coverage.",
-    ))
+    levers.append(("Score-Based Lead Prioritisation",
+        "Implement propensity scoring to rank leads by PTP likelihood before dialling. Focusing the first 60% of attempts on the top 30% of leads typically reduces Cost per PTP by 20–35%."))
 
-for title, body in levers[:3]:
+for i, (title, body) in enumerate(levers[:3], 1):
     st.markdown(f"""
     <div class="lever-card">
-      <div class="lever-title">✦ {title}</div>
-      <div class="lever-body">{body}</div>
+      <div class="lever-num-badge">{i}</div>
+      <div>
+        <div class="lever-title">✦ {title}</div>
+        <div class="lever-body">{body}</div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown(
-    "<div style='text-align:center;font-size:11px;color:#444d56;padding:8px 0'>"
-    "RecoverIQ Collections Intelligence · Powered by AI · Confidential"
-    "</div>",
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<div style="text-align:center;font-size:11px;color:#30363d;padding:20px 0 8px;margin-top:12px;border-top:1px solid #1e2530">
+  RecoverIQ Collections Intelligence · v2.0 · Powered by AI · Confidential
+</div>
+""", unsafe_allow_html=True)
