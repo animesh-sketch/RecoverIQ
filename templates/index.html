@@ -1,168 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RecoverIQ | Collections Intelligence</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>RecoverIQ — Collections Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-<!-- ── Sidebar ── -->
+<!-- ══ Sidebar ══════════════════════════════════════════════════════════════ -->
 <aside class="sidebar">
-  <div class="sidebar-logo">
-    <div class="logo-icon">⚡</div>
+  <div class="sb-brand">
+    <div class="sb-logo">⚡</div>
     <div>
-      <div class="logo-title">RecoverIQ</div>
-      <div class="logo-sub">Collections Intelligence</div>
+      <div class="sb-name">RecoverIQ</div>
+      <div class="sb-tagline">Collections Intelligence</div>
     </div>
   </div>
 
-  <nav class="sidebar-nav">
-    <div class="nav-item active"><span class="nav-icon">◈</span> Dashboard</div>
-    <div class="nav-item" onclick="document.getElementById('fileInput').click()"><span class="nav-icon">↑</span> Upload CSV</div>
-    <div class="nav-item" onclick="loadDemo()"><span class="nav-icon">↺</span> Reset Demo</div>
+  <nav class="sb-nav">
+    <div class="sb-nav-item active"><span>◈</span> Dashboard</div>
+    <div class="sb-nav-item" onclick="document.getElementById('fileInput').click()"><span>↑</span> Upload Data</div>
+    <div class="sb-nav-item" onclick="loadDemo()"><span>↺</span> Reset Demo</div>
   </nav>
 
-  <div class="upload-zone" id="uploadZone">
-    <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFileChange(event)" />
-    <div class="upload-icon">📂</div>
-    <div class="upload-title">Drop CSV here</div>
-    <div class="upload-hint">or click to browse</div>
-    <div class="upload-cols">
-      Lead_Entity_Disposition<br>
-      Lead_State · AI_Attempted_Calls<br>
-      AI_Connected_Calls · Total_Spend_INR
+  <div class="sb-upload" id="uploadZone">
+    <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="handleFile(event)"/>
+    <div class="sb-upload-icon">📂</div>
+    <div class="sb-upload-title">Drop CSV to analyse</div>
+    <div class="sb-upload-hint">or click to browse</div>
+    <div class="sb-upload-cols">
+      Lead_Entity_Disposition &nbsp;·&nbsp; Lead_State<br>
+      AI_Attempted_Calls &nbsp;·&nbsp; AI_Connected_Calls<br>
+      Total_Spend_INR
     </div>
   </div>
 
-  <div class="sidebar-data" id="sidebarData"></div>
-
-  <div class="sidebar-footer">RecoverIQ v1.0 · AI-Powered</div>
+  <div class="sb-stats" id="sidebarStats"></div>
+  <div class="sb-footer">RecoverIQ v2.0 &nbsp;·&nbsp; AI-Powered Analytics</div>
 </aside>
 
-<!-- ── Main ── -->
+<!-- ══ Main ═════════════════════════════════════════════════════════════════ -->
 <main class="main">
 
   <!-- Top bar -->
   <header class="topbar">
-    <div class="topbar-left">
-      <h1 class="page-title">Campaign Intelligence Dashboard</h1>
-      <span class="page-sub">Executive View · Real-Time Analytics</span>
+    <div>
+      <h1 class="topbar-title">Campaign Intelligence</h1>
+      <span class="topbar-sub">Executive Dashboard &nbsp;·&nbsp; Real-Time Analytics</span>
     </div>
     <div class="topbar-right">
-      <span class="badge badge-ai">⚡ AI-Powered</span>
-      <span class="badge badge-live" id="dataLabel">Demo Data</span>
+      <span class="chip chip-blue">⚡ AI-Powered</span>
+      <span class="chip chip-gold" id="dataChip">Demo Data</span>
     </div>
   </header>
 
-  <!-- Loading overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner"></div>
-    <div class="loading-text">Processing data…</div>
+  <!-- Loading -->
+  <div class="loading-veil" id="loadingVeil">
+    <div class="loading-ring"></div>
+    <span class="loading-label">Analysing data…</span>
   </div>
 
-  <!-- Error banner -->
-  <div class="error-banner" id="errorBanner">
+  <!-- Error -->
+  <div class="error-strip" id="errorStrip">
     <span class="error-icon">⚠</span>
     <span id="errorMsg"></span>
-    <button class="error-close" onclick="hideError()">✕</button>
+    <button onclick="hideError()">✕</button>
   </div>
 
-  <!-- ── Section 1: Campaign Overview ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">01</span>
-      <span class="sec-title">Campaign Overview</span>
-    </div>
+  <!-- ── 01 · Campaign Overview ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">01</span><span class="sec-label">Campaign Overview</span></div>
     <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="health-bar" id="healthBar"></div>
   </section>
 
-  <!-- ── Section 2: Campaign Score ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">02</span>
-      <span class="sec-title">Campaign Score</span>
-    </div>
+  <!-- ── 02 · Campaign Score ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">02</span><span class="sec-label">Campaign Score</span></div>
     <div class="score-layout">
       <div id="scoreCard"></div>
-      <div class="score-chart-wrap">
-        <div class="chart-label">Score Component Breakdown</div>
-        <canvas id="scoreChart"></canvas>
+      <div class="chart-box">
+        <div class="chart-title">Score Components</div>
+        <canvas id="scoreChart" height="180"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Lead State Distribution</div>
+        <canvas id="stateChart" height="180"></canvas>
       </div>
     </div>
   </section>
 
-  <!-- ── Section 3: Funnel Intelligence ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">03</span>
-      <span class="sec-title">Funnel Intelligence</span>
-    </div>
+  <!-- ── 03 · Funnel Intelligence ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">03</span><span class="sec-label">Funnel Intelligence</span></div>
     <div class="funnel-layout">
-      <div class="funnel-left">
-        <div class="chart-label">Campaign Conversion Funnel</div>
+      <div class="chart-box funnel-box">
+        <div class="chart-title">Conversion Funnel</div>
         <div id="funnelViz"></div>
       </div>
-      <div class="funnel-right">
-        <div class="chart-label">Drop-off Analysis</div>
-        <div id="dropoffTable"></div>
+      <div class="chart-box">
+        <div class="chart-title">Stage Drop-off</div>
+        <div id="dropoffList"></div>
         <div id="dropoffCallout"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Connection by Disposition</div>
+        <canvas id="connDispChart" height="220"></canvas>
       </div>
     </div>
   </section>
 
-  <!-- ── Section 4: Efficiency Snapshot ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">04</span>
-      <span class="sec-title">Efficiency Snapshot</span>
-    </div>
+  <!-- ── 04 · Efficiency Snapshot ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">04</span><span class="sec-label">Efficiency Snapshot</span></div>
     <div class="eff-layout">
-      <div class="eff-col">
-        <div class="chart-label">Retry &amp; Attempt Logic</div>
+      <div class="table-box">
+        <div class="chart-title">Retry & Attempt Logic</div>
         <div id="retryTable"></div>
       </div>
-      <div class="eff-col">
-        <div class="chart-label">Cost Efficiency</div>
+      <div class="table-box">
+        <div class="chart-title">Cost Efficiency</div>
         <div id="costTable"></div>
       </div>
     </div>
-    <div class="chart-label" style="margin-top:28px">Lead Disposition Distribution</div>
-    <div class="chart-wrap">
-      <canvas id="dispChart"></canvas>
+    <div class="chart-row">
+      <div class="chart-box flex2">
+        <div class="chart-title">Disposition Distribution</div>
+        <canvas id="dispChart" height="140"></canvas>
+      </div>
+      <div class="chart-box flex1">
+        <div class="chart-title">Disposition Mix</div>
+        <canvas id="donutChart" height="220"></canvas>
+      </div>
     </div>
   </section>
 
-  <!-- ── Section 5: Risk Radar ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">05</span>
-      <span class="sec-title">Risk Radar</span>
+  <!-- ── 05 · Deep Analytics ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">05</span><span class="sec-label">Deep Analytics</span></div>
+    <div class="chart-row">
+      <div class="chart-box flex1">
+        <div class="chart-title">Spend vs Attempts &nbsp;<span class="chart-sub">(sampled leads)</span></div>
+        <canvas id="scatterChart" height="240"></canvas>
+      </div>
+      <div class="chart-box flex1">
+        <div class="chart-title">Attempt Distribution</div>
+        <canvas id="attDistChart" height="240"></canvas>
+      </div>
     </div>
+    <div class="chart-row" style="margin-top:16px">
+      <div class="chart-box flex1">
+        <div class="chart-title">Spend Distribution</div>
+        <canvas id="spendHistChart" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 06 · Risk Radar ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">06</span><span class="sec-label">Risk Radar</span></div>
     <div class="risk-grid" id="riskGrid"></div>
   </section>
 
-  <!-- ── Section 6: Optimization Levers ── -->
-  <section class="dash-section">
-    <div class="section-header">
-      <span class="sec-num">06</span>
-      <span class="sec-title">Top 3 Optimization Levers</span>
-    </div>
+  <!-- ── 07 · Optimisation Levers ── -->
+  <section class="section">
+    <div class="sec-hdr"><span class="sec-num">07</span><span class="sec-label">Top 3 Optimisation Levers</span></div>
     <div id="leverList"></div>
   </section>
 
   <footer class="dash-footer">
-    RecoverIQ Collections Intelligence · Powered by AI · Confidential
+    RecoverIQ Collections Intelligence &nbsp;·&nbsp; Powered by AI &nbsp;·&nbsp; Confidential
   </footer>
 </main>
 
-<script>
-  const INITIAL_DATA = {{ initial_data | safe }};
-</script>
+<script>const INITIAL_DATA = {{ initial_data | safe }};</script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

@@ -1,6 +1,4 @@
 import json
-import io
-
 import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
@@ -13,188 +11,170 @@ def generate_demo_data(n: int = 500) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     dispositions = rng.choice(
         ["PTP", "RTP", "Not_Evaluated", "Callback", "Connected_No_Outcome", "Unreachable"],
-        size=n,
-        p=[0.22, 0.12, 0.18, 0.15, 0.13, 0.20],
+        size=n, p=[0.22, 0.12, 0.18, 0.15, 0.13, 0.20],
     )
-    states = rng.choice(["active", "inactive", "completed"], size=n, p=[0.55, 0.25, 0.20])
+    states    = rng.choice(["active", "inactive", "completed"], size=n, p=[0.55, 0.25, 0.20])
     attempted = rng.integers(1, 16, size=n)
     connected = np.where(
         np.isin(dispositions, ["PTP", "Callback", "Connected_No_Outcome"]),
-        rng.integers(1, attempted + 1),
-        rng.integers(0, 3, size=n),
+        rng.integers(1, attempted + 1), rng.integers(0, 3, size=n),
     )
     connected = np.minimum(connected, attempted)
-    spend = rng.uniform(5, 45, size=n)
+    spend     = rng.uniform(5, 45, size=n)
     return pd.DataFrame({
-        "Lead_ID": [f"L{10000+i}" for i in range(n)],
-        "Lead_Entity_Disposition": dispositions,
-        "Lead_State": states,
-        "AI_Attempted_Calls": attempted,
-        "AI_Connected_Calls": connected,
-        "Total_Spend_INR": spend.round(2),
+        "Lead_ID":                  [f"L{10000+i}" for i in range(n)],
+        "Lead_Entity_Disposition":  dispositions,
+        "Lead_State":               states,
+        "AI_Attempted_Calls":       attempted,
+        "AI_Connected_Calls":       connected,
+        "Total_Spend_INR":          spend.round(2),
     })
 
 
-# ── KPI computation ───────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def _r(v, d=1):
-    """Round floats; return 0 for nan/inf."""
     if v is None or (isinstance(v, float) and (np.isnan(v) or np.isinf(v))):
         return 0.0
     return round(float(v), d)
 
 
+# ── KPIs ──────────────────────────────────────────────────────────────────────
 def compute_kpis(df: pd.DataFrame) -> dict:
-    total = len(df)
-    ptp_count = int((df["Lead_Entity_Disposition"] == "PTP").sum())
-    ptp_pct = _r(ptp_count / total * 100)
-
-    connected_leads = int((df["AI_Connected_Calls"] > 0).sum())
-    connection_rate = _r(connected_leads / total * 100)
-
-    attempted_leads = int((df["AI_Attempted_Calls"] > 0).sum())
-
-    active_count = int((df["Lead_State"] == "active").sum())
-    active_pct = _r(active_count / total * 100)
-
-    total_spend = _r(df["Total_Spend_INR"].sum(), 2)
-    cost_per_ptp = _r(total_spend / ptp_count if ptp_count else 0, 2)
-    avg_attempts = _r(df["AI_Attempted_Calls"].mean())
-
-    conn_mask = df["AI_Connected_Calls"] > 0
-    avg_conn = _r(df.loc[conn_mask, "AI_Attempted_Calls"].mean() if conn_mask.sum() else 0)
-    avg_no_conn = _r(df.loc[~conn_mask, "AI_Attempted_Calls"].mean() if (~conn_mask).sum() else 0)
-    attempt_eff = _r(connected_leads / attempted_leads * 100 if attempted_leads else 0)
-
-    completed_leads = int((df["Lead_State"] == "completed").sum())
-
-    not_eval_count = int((df["Lead_Entity_Disposition"] == "Not_Evaluated").sum())
-    not_eval_pct = _r(not_eval_count / total * 100)
-
-    overattempted = int(((df["AI_Attempted_Calls"] > 12) & (df["AI_Connected_Calls"] == 0)).sum())
-    overattempted_pct = _r(overattempted / total * 100)
-
-    spend_mean = _r(df["Total_Spend_INR"].mean(), 2)
-    spend_std = _r(df["Total_Spend_INR"].std(), 2)
-    cost_outliers = int((df["Total_Spend_INR"] > spend_mean + 2 * spend_std).sum())
-
-    cost_per_conn = _r(total_spend / connected_leads if connected_leads else 0, 2)
-    cost_per_lead = _r(total_spend / total, 2)
-    cost_per_attempt = _r(total_spend / attempted_leads if attempted_leads else 0, 2)
-
-    dispositions = df["Lead_Entity_Disposition"].value_counts().to_dict()
-
-    return {
-        "total": total,
-        "ptp_count": ptp_count,
-        "ptp_pct": ptp_pct,
-        "connected_leads": connected_leads,
-        "connection_rate": connection_rate,
-        "attempted_leads": attempted_leads,
-        "active_count": active_count,
-        "active_pct": active_pct,
-        "total_spend": total_spend,
-        "cost_per_ptp": cost_per_ptp,
-        "avg_attempts": avg_attempts,
-        "avg_attempts_connected": avg_conn,
-        "avg_attempts_not_connected": avg_no_conn,
-        "attempt_efficiency": attempt_eff,
-        "completed_leads": completed_leads,
-        "not_eval_count": not_eval_count,
-        "not_eval_pct": not_eval_pct,
-        "overattempted": overattempted,
-        "overattempted_pct": overattempted_pct,
-        "cost_outliers": cost_outliers,
-        "spend_mean": spend_mean,
-        "spend_std": spend_std,
-        "cost_per_connection": cost_per_conn,
-        "cost_per_lead": cost_per_lead,
-        "cost_per_attempt": cost_per_attempt,
-        "total_attempted_calls": int(df["AI_Attempted_Calls"].sum()),
-        "total_connected_calls": int(df["AI_Connected_Calls"].sum()),
-        "dispositions": {str(k): int(v) for k, v in dispositions.items()},
-    }
+    total       = len(df)
+    ptp_count   = int((df["Lead_Entity_Disposition"] == "PTP").sum())
+    ptp_pct     = _r(ptp_count / total * 100)
+    conn_leads  = int((df["AI_Connected_Calls"] > 0).sum())
+    conn_rate   = _r(conn_leads / total * 100)
+    att_leads   = int((df["AI_Attempted_Calls"] > 0).sum())
+    act_count   = int((df["Lead_State"] == "active").sum())
+    act_pct     = _r(act_count / total * 100)
+    spend       = _r(df["Total_Spend_INR"].sum(), 2)
+    cost_ptp    = _r(spend / ptp_count if ptp_count else 0, 2)
+    avg_att     = _r(df["AI_Attempted_Calls"].mean())
+    cm          = df["AI_Connected_Calls"] > 0
+    avg_c       = _r(df.loc[cm,  "AI_Attempted_Calls"].mean() if cm.sum()   else 0)
+    avg_nc      = _r(df.loc[~cm, "AI_Attempted_Calls"].mean() if (~cm).sum() else 0)
+    att_eff     = _r(conn_leads / att_leads * 100 if att_leads else 0)
+    comp_leads  = int((df["Lead_State"] == "completed").sum())
+    ne_count    = int((df["Lead_Entity_Disposition"] == "Not_Evaluated").sum())
+    ne_pct      = _r(ne_count / total * 100)
+    ov_count    = int(((df["AI_Attempted_Calls"] > 12) & (df["AI_Connected_Calls"] == 0)).sum())
+    ov_pct      = _r(ov_count / total * 100)
+    smean       = _r(df["Total_Spend_INR"].mean(), 2)
+    sstd        = _r(df["Total_Spend_INR"].std(), 2)
+    outliers    = int((df["Total_Spend_INR"] > smean + 2 * sstd).sum())
+    cpc         = _r(spend / conn_leads if conn_leads else 0, 2)
+    cpl         = _r(spend / total, 2)
+    cpa         = _r(spend / att_leads if att_leads else 0, 2)
+    dispositions = {str(k): int(v) for k, v in df["Lead_Entity_Disposition"].value_counts().items()}
+    states_dist  = {str(k): int(v) for k, v in df["Lead_State"].value_counts().items()}
+    return dict(
+        total=total, ptp_count=ptp_count, ptp_pct=ptp_pct,
+        connected_leads=conn_leads, connection_rate=conn_rate,
+        attempted_leads=att_leads, active_count=act_count, active_pct=act_pct,
+        total_spend=spend, cost_per_ptp=cost_ptp, avg_attempts=avg_att,
+        avg_attempts_connected=avg_c, avg_attempts_not_connected=avg_nc,
+        attempt_efficiency=att_eff, completed_leads=comp_leads,
+        not_eval_count=ne_count, not_eval_pct=ne_pct,
+        overattempted=ov_count, overattempted_pct=ov_pct,
+        cost_outliers=outliers, spend_mean=smean, spend_std=sstd,
+        cost_per_connection=cpc, cost_per_lead=cpl, cost_per_attempt=cpa,
+        total_attempted_calls=int(df["AI_Attempted_Calls"].sum()),
+        total_connected_calls=int(df["AI_Connected_Calls"].sum()),
+        dispositions=dispositions, states=states_dist,
+    )
 
 
 def compute_score(k: dict) -> dict:
-    ptp_s = min(k["ptp_pct"] / 25 * 10, 10)
-    conn_s = min(k["connection_rate"] / 60 * 10, 10)
-    active_penalty = max(0.0, (k["active_pct"] - 50) / 50 * 10)
-    active_s = max(0.0, 10 - active_penalty)
-    cost_s = min(150 / k["cost_per_ptp"] * 10, 10) if k["cost_per_ptp"] > 0 else 0.0
-
-    value = _r(ptp_s * 0.40 + conn_s * 0.30 + active_s * 0.15 + cost_s * 0.15)
-
-    if value >= 7:
-        grade, color = "Strong", "#3fb950"
-    elif value >= 4:
-        grade, color = "Needs Optimization", "#d29922"
-    else:
-        grade, color = "At Risk", "#f85149"
-
-    return {
-        "value": value,
-        "grade": grade,
-        "color": color,
-        "components": {
-            "PTP Rate (40%)": _r(ptp_s * 0.40, 2),
-            "Connection Rate (30%)": _r(conn_s * 0.30, 2),
-            "Active Lead Mgmt (15%)": _r(active_s * 0.15, 2),
-            "Cost Efficiency (15%)": _r(cost_s * 0.15, 2),
+    ptp_s  = min(k["ptp_pct"] / 25 * 10, 10)
+    con_s  = min(k["connection_rate"] / 60 * 10, 10)
+    act_s  = max(0.0, 10 - max(0.0, (k["active_pct"] - 50) / 50 * 10))
+    cst_s  = min(150 / k["cost_per_ptp"] * 10, 10) if k["cost_per_ptp"] > 0 else 0.0
+    value  = _r(ptp_s * .40 + con_s * .30 + act_s * .15 + cst_s * .15)
+    grade, color = (
+        ("Strong", "#22c55e") if value >= 7 else
+        ("Needs Optimization", "#f59e0b") if value >= 4 else
+        ("At Risk", "#ef4444")
+    )
+    return dict(
+        value=value, grade=grade, color=color,
+        components={
+            "PTP Rate (40%)":        _r(ptp_s * .40, 2),
+            "Connection Rate (30%)": _r(con_s * .30, 2),
+            "Active Mgmt (15%)":     _r(act_s * .15, 2),
+            "Cost Efficiency (15%)": _r(cst_s * .15, 2),
         },
-        "max_scores": [4.0, 3.0, 1.5, 1.5],
-    }
+        max_scores=[4.0, 3.0, 1.5, 1.5],
+    )
 
 
 def build_funnel(k: dict) -> list:
-    colors = ["#58a6ff", "#4d94e0", "#3fb950", "#2ea044", "#238636"]
-    stages = [
-        ("Total Leads", k["total"]),
-        ("Attempted", k["attempted_leads"]),
-        ("Connected", k["connected_leads"]),
-        ("PTP", k["ptp_count"]),
-        ("Completed", k["completed_leads"]),
+    return [
+        {"stage": "Total Leads", "value": k["total"],           "color": "#3b82f6"},
+        {"stage": "Attempted",   "value": k["attempted_leads"],  "color": "#6366f1"},
+        {"stage": "Connected",   "value": k["connected_leads"],  "color": "#22c55e"},
+        {"stage": "PTP",         "value": k["ptp_count"],        "color": "#c9a84c"},
+        {"stage": "Completed",   "value": k["completed_leads"],  "color": "#0ea5e9"},
     ]
-    return [{"stage": s, "value": v, "color": c} for (s, v), c in zip(stages, colors)]
+
+
+def compute_charts(df: pd.DataFrame, k: dict) -> dict:
+    # Scatter: attempts vs spend (sampled)
+    samp = df.sample(min(300, len(df)), random_state=42)
+    scatter = [
+        {"x": int(r["AI_Attempted_Calls"]),
+         "y": _r(r["Total_Spend_INR"], 2),
+         "d": r["Lead_Entity_Disposition"],
+         "connected": bool(r["AI_Connected_Calls"] > 0)}
+        for _, r in samp.iterrows()
+    ]
+
+    # Spend histogram
+    counts, edges = np.histogram(df["Total_Spend_INR"], bins=14)
+    spend_hist = {
+        "labels": [f"₹{e:.0f}" for e in edges[:-1]],
+        "values": counts.tolist(),
+    }
+
+    # Attempt distribution
+    att_dist = df["AI_Attempted_Calls"].value_counts().sort_index()
+    attempt_dist = {
+        "labels": att_dist.index.tolist(),
+        "values": att_dist.values.tolist(),
+    }
+
+    # Connected vs not-connected by disposition
+    grp = df.groupby("Lead_Entity_Disposition").agg(
+        connected=("AI_Connected_Calls", lambda x: (x > 0).sum()),
+        total=("AI_Connected_Calls", "count"),
+    ).reset_index()
+    conn_by_disp = {
+        "labels":    grp["Lead_Entity_Disposition"].tolist(),
+        "connected": grp["connected"].tolist(),
+        "not_connected": (grp["total"] - grp["connected"]).tolist(),
+    }
+
+    return dict(scatter=scatter, spend_hist=spend_hist,
+                attempt_dist=attempt_dist, conn_by_disp=conn_by_disp)
 
 
 def compute_risks(k: dict) -> list:
     risks = []
     if k["ptp_pct"] < 15:
-        risks.append({
-            "title": "Critical PTP Rate",
-            "body": f"PTP rate at {k['ptp_pct']}% is below the 15% baseline. Only {k['ptp_count']:,} of {k['total']:,} leads converted. Review script quality and targeting logic.",
-        })
+        risks.append({"title": "Critical PTP Rate", "body": f"PTP rate {k['ptp_pct']}% is below the 15% baseline. Only {k['ptp_count']:,} of {k['total']:,} leads converted. Review script quality and targeting logic."})
     if k["not_eval_pct"] > 15:
-        risks.append({
-            "title": "High Not-Evaluated Pool",
-            "body": f"{k['not_eval_pct']}% of leads ({k['not_eval_count']:,}) remain Not Evaluated — recoverable revenue sitting idle. Prioritize re-routing to active retry queues.",
-        })
+        risks.append({"title": "High Not-Evaluated Pool", "body": f"{k['not_eval_pct']}% of leads ({k['not_eval_count']:,}) remain Not Evaluated — recoverable revenue sitting idle."})
     if k["overattempted_pct"] > 5:
-        risks.append({
-            "title": "Over-Attempted Zero-Connection Leads",
-            "body": f"{k['overattempted']:,} leads ({k['overattempted_pct']}%) have >12 attempts with zero connections. Burning spend with no return — flag for exclusion or human escalation.",
-        })
+        risks.append({"title": "Over-Attempted Zero-Connection Leads", "body": f"{k['overattempted']:,} leads ({k['overattempted_pct']}%) have >12 attempts with zero connections — burning spend."})
     if k["cost_outliers"] > 0:
-        threshold = k["spend_mean"] + 2 * k["spend_std"]
-        risks.append({
-            "title": "Cost Outlier Leads",
-            "body": f"{k['cost_outliers']:,} leads exceed ₹{threshold:.0f} spend (mean + 2σ). Audit for ROI — they may be distorting the overall Cost-per-PTP metric.",
-        })
+        thr = k["spend_mean"] + 2 * k["spend_std"]
+        risks.append({"title": "Cost Outlier Leads", "body": f"{k['cost_outliers']:,} leads exceed ₹{thr:.0f} (mean+2σ). May be distorting Cost-per-PTP metric."})
     if k["connection_rate"] < 30:
-        risks.append({
-            "title": "Low Connection Rate",
-            "body": f"Only {k['connection_rate']}% of leads are connecting. Below 30% signals list quality issues, wrong numbers, or poor call timing. Validate contact data.",
-        })
+        risks.append({"title": "Low Connection Rate", "body": f"Only {k['connection_rate']}% connecting. Below 30% signals list quality issues or poor call timing."})
     if k["active_pct"] > 70:
-        risks.append({
-            "title": "Excessive Active Lead Backlog",
-            "body": f"{k['active_pct']}% of leads are still 'active'. Signals capacity constraints or insufficient follow-through velocity.",
-        })
+        risks.append({"title": "Excessive Active Backlog", "body": f"{k['active_pct']}% of leads still 'active' — signals capacity constraints."})
     if not risks:
-        risks.append({
-            "title": "No Critical Risks Detected",
-            "body": "All key metrics are within acceptable thresholds. Continue monitoring performance indicators.",
-        })
+        risks.append({"title": "No Critical Risks Detected", "body": "All key metrics within acceptable thresholds."})
     return risks[:4]
 
 
@@ -203,44 +183,30 @@ def compute_levers(k: dict) -> list:
     if k["connection_rate"] < 50:
         gap = 50 - k["connection_rate"]
         extra = int(gap / 100 * k["total"])
-        levers.append({
-            "title": "Dial-Time Optimization",
-            "body": f"Connection rate is {k['connection_rate']}%. Shifting AI outreach to peak windows (10am–12pm, 4pm–6pm IST) could recover {extra:,}+ connections — estimated +{gap:.0f}pp connection rate.",
-        })
+        levers.append({"title": "Dial-Time Optimisation", "body": f"Shifting AI outreach to peak windows (10am–12pm, 4–6pm IST) could recover {extra:,}+ connections — est. +{gap:.0f}pp connection rate."})
     if k["not_eval_count"] > 20:
-        potential = int(k["not_eval_count"] * k["ptp_pct"] / 100)
-        levers.append({
-            "title": "Re-Engage Not-Evaluated Leads",
-            "body": f"{k['not_eval_count']:,} leads sit unscored. Applying the current PTP rate ({k['ptp_pct']}%) projects {potential:,} incremental PTPs. Route to a 3-attempt retry sequence before expiration.",
-        })
+        pot = int(k["not_eval_count"] * k["ptp_pct"] / 100)
+        levers.append({"title": "Re-Engage Not-Evaluated Leads", "body": f"{k['not_eval_count']:,} unscored leads. Applying current PTP rate projects {pot:,} incremental PTPs via a 3-attempt retry sequence."})
     if k["overattempted"] > 0:
         reclaim = _r(k["overattempted"] * k["spend_mean"], 0)
-        levers.append({
-            "title": "Prune Dead-End Leads & Reallocate Spend",
-            "body": f"Capping retries at 12 on {k['overattempted']:,} zero-connection leads reclaims ~₹{reclaim:,.0f} in AI dial spend. Reallocate to fresh high-propensity segments to improve Cost per PTP.",
-        })
+        levers.append({"title": "Prune Dead-End Leads", "body": f"Capping retries at 12 on {k['overattempted']:,} zero-connection leads reclaims ~₹{reclaim:,.0f} in AI dial spend."})
     if len(levers) < 3:
-        levers.append({
-            "title": "Score-Based Lead Prioritisation",
-            "body": "Implement propensity scoring to rank leads by PTP likelihood before dialling. Focusing the first 60% of attempts on the top 30% of leads typically reduces Cost per PTP by 20–35%.",
-        })
+        levers.append({"title": "Score-Based Lead Prioritisation", "body": "Propensity scoring on the top 30% of leads typically reduces Cost per PTP by 20–35% while maintaining coverage."})
     return levers[:3]
 
 
 def build_response(df: pd.DataFrame) -> dict:
     k = compute_kpis(df)
-    return {
-        "kpis": k,
-        "score": compute_score(k),
-        "funnel": build_funnel(k),
-        "risks": compute_risks(k),
-        "levers": compute_levers(k),
-    }
+    return dict(
+        kpis=k, score=compute_score(k), funnel=build_funnel(k),
+        charts=compute_charts(df, k),
+        risks=compute_risks(k), levers=compute_levers(k),
+    )
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
-REQUIRED_COLS = {"Lead_Entity_Disposition", "Lead_State", "AI_Attempted_Calls",
-                 "AI_Connected_Calls", "Total_Spend_INR"}
+REQUIRED = {"Lead_Entity_Disposition", "Lead_State",
+            "AI_Attempted_Calls", "AI_Connected_Calls", "Total_Spend_INR"}
 
 
 @app.route("/")
@@ -263,10 +229,9 @@ def upload():
         return jsonify({"error": "Empty filename"}), 400
     try:
         df = pd.read_csv(f)
-        # Accept "Total_Spend (INR)" as alias for "Total_Spend_INR"
         if "Total_Spend (INR)" in df.columns and "Total_Spend_INR" not in df.columns:
             df = df.rename(columns={"Total_Spend (INR)": "Total_Spend_INR"})
-        missing = REQUIRED_COLS - set(df.columns)
+        missing = REQUIRED - set(df.columns)
         if missing:
             return jsonify({"error": f"Missing columns: {', '.join(sorted(missing))}"}), 400
         return jsonify(build_response(df))
